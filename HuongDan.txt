@@ -1,3 +1,4 @@
+Hướng dẫn chạy trên Visual code:
 Chạy từng lệnh sau trong terminal:
 
 python --version
@@ -13,10 +14,18 @@ pip install flask pycryptodome
  BƯỚC CHẠY ỨNG DỤNG
 
 python app.py
+
 Mở trình duyệt và vào địa chỉ:...
 
-link web githuh: https://github.com/Nhat-Ngo-hihi/DoAnChuyenNganhKiHe
 
+Hướng dẫn chạy trực tiếp trên githuh:
+link web githuh: https://github.com/Nhat-Ngo-hihi/DoAnChuyenNganhKiHe
+Bước 1: chọn code
+Bước 2: tiến hành tải live server
+Bước 3: nhấn go live và chọn templates
+Bước 4: tiến hành chạy thử demo
+
+=========================================
 add code lên githuh: 
 git add .
 git commit -m"DoAnKiHe"
