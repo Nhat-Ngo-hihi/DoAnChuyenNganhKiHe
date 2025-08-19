@@ -14,3 +14,9 @@ pip install flask pycryptodome
 
 python app.py
 Mở trình duyệt và vào địa chỉ:...
+
+link web githuh: https://github.com/Nhat-Ngo-hihi/DoAnChuyenNganhKiHe
+
+add code lên githuh: 
+git add .
+git push origin master
