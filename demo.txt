@@ -1,0 +1,2 @@
+Đây là nội dung thử nghiệm mã hóa OTP + AES.
+Mình đang kiểm tra xem giải mã có lỗi không.

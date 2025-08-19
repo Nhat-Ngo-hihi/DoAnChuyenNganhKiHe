@@ -1,0 +1,16 @@
+Chạy từng lệnh sau trong terminal:
+
+python --version
+ => Kết quả mong đợi: Python 3.13.5
+
+pip --version
+ => Kết quả mong đợi: dòng thông tin về pip như pip 23.x from ...
+
+Bước tiếp theo CÀI GÓI CẦN THIẾT
+
+pip install flask pycryptodome
+
+ BƯỚC CHẠY ỨNG DỤNG
+
+python app.py
+Mở trình duyệt và vào địa chỉ:...
