@@ -13,7 +13,9 @@ pip install flask pycryptodome
 
  BƯỚC CHẠY ỨNG DỤNG
 
+cd D:\DoAnKiHe\api
 python app.py
+
 
 Mở trình duyệt và vào địa chỉ:...
 
