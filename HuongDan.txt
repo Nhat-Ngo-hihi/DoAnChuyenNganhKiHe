@@ -20,12 +20,10 @@ python app.py
 Mở trình duyệt và vào địa chỉ:...
 
 
-Hướng dẫn chạy trực tiếp trên githuh:
+Hướng dẫn chạy trực tiếp trên githuh và vercel:
 link web githuh: https://github.com/Nhat-Ngo-hihi/DoAnChuyenNganhKiHe
-Bước 1: chọn code
-Bước 2: tiến hành tải live server
-Bước 3: nhấn go live và chọn templates
-Bước 4: tiến hành chạy thử demo
+link web demo: https://one-time-pad.vercel.app/
+
 
 =========================================
 add code lên githuh: 
