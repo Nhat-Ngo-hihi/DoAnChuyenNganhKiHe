@@ -156,6 +156,16 @@
   </div>
 
 <script>
+function validatePassword() {
+    const password = document.getElementById("password").value;
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[\W_]).{6,}$/;
+
+    if (!regex.test(password)) {
+        alert("❌ Mật khẩu phải có ít nhất 6 ký tự, gồm chữ hoa, chữ thường và ký tự đặc biệt!");
+        return false; // chặn gửi form
+    }
+    return true;
+}
 const modeRadios = document.querySelectorAll('input[name="mode"]');
 const encryptInputs = document.getElementById('encryptInputs');
 const decryptInputs = document.getElementById('decryptInputs');
@@ -344,7 +354,7 @@ document.getElementById('btnDecrypt').addEventListener('click', async () => {
 });
 
 // Clear cả mã hóa và giải mã
-document.getElementById('btnClear').addEventListener('click', () => {
+document.getElementById('btnClearDecrypt').addEventListener('click', () => {
   clearLog();
   keyHexPre.innerText = '';
   encPassHexPre.innerText = '';

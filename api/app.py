@@ -1,6 +1,6 @@
 from pickle import dumps, loads
 from flask import Flask, render_template, request, jsonify
-import base64, os
+import base64, os, re
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 
@@ -27,6 +27,18 @@ def aes_decrypt(enc_password: bytes, secret: bytes) -> str:
     cipher = AES.new(secret, AES.MODE_ECB)
     return unpad(cipher.decrypt(enc_password), AES.block_size).decode("utf-8")
 
+# 🔐 Hàm kiểm tra định dạng mật khẩu
+def validate_password(password: str) -> bool:
+    if len(password) < 6:
+        return False
+    if not re.search(r"[a-z]", password):  # ít nhất 1 chữ thường
+        return False
+    if not re.search(r"[A-Z]", password):  # ít nhất 1 chữ hoa
+        return False
+    if not re.search(r"[^a-zA-Z0-9]", password):  # ít nhất 1 ký tự đặc biệt
+        return False
+    return True
+
 # Root -> render UI
 @app.route('/')
 def index():
@@ -41,6 +53,10 @@ def encrypt():
         password = data.get('password', '')
         compress = bool(data.get('compress', False))
         out_ext = data.get('outExt', 'bin')
+
+        # Kiểm tra ràng buộc mật khẩu
+        if not validate_password(password):
+            return jsonify({'error': 'Mật khẩu không hợp lệ. Phải ≥6 ký tự, có chữ hoa, chữ thường và ký tự đặc biệt.'}), 400
 
         file_bytes = base64.b64decode(file_b64)
 
@@ -151,9 +167,17 @@ def decrypt():
         })
     except Exception as e:
         return jsonify({'error': f'Lỗi giải mã: {str(e)}'}), 500
-
-
+    
 # 🔥 đoạn này phải đặt ngoài cùng, không nằm trong hàm
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+    
+# Clear log endpoint
+@app.route('/clear_log', methods=['POST'])
+def clear_log():
+    try:
+        # trả về JSON rỗng log
+        return jsonify({"log": ""})
+    except Exception as e:
+        return jsonify({"error": f"Lỗi khi xóa log: {str(e)}"}), 500
 
