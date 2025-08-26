@@ -33,12 +33,33 @@
     #encryptInputs select {
       margin-top: 0.4rem;
     }
+
+    /* ===== Responsive container ===== */
+    .main-container {
+      width: 95%;
+      max-width: 1400px;  /* laptop không quá to */
+      margin: 0 auto;
+    }
+    @media (min-width: 1024px) {
+      .main-container {
+        width: 85%; /* trên laptop chiếm 85% màn hình */
+      }
+    }
+    @media (max-width: 768px) {
+      .main-container {
+        width: 95%; /* mobile chiếm gần hết */
+        padding: 1rem;
+      }
+    }
   </style>
 </head>
-<body class="min-h-screen bg-gray-900 text-white" style="background-image: url('/static/nen.jpg'); background-size:cover;">
-  <div class="bg-black bg-opacity-60 min-h-screen p-8">
-    <div class="max-w-4xl mx-auto bg-gray-800 bg-opacity-90 rounded-xl p-8 relative">
-      <h1 class="text-3xl text-center text-teal-300 mb-4">Ứng dụng Mã Hóa & Giải Mã One-Time Pad</h1>
+<body class="min-h-screen bg-gray-900 text-white flex items-center justify-center bg-fixed"
+      style="background-image: url('/static/nen.jpg'); background-size:cover; background-position:center;">
+  <div class="bg-black bg-opacity-60 min-h-screen p-4 sm:p-8 w-full">
+    <div class="main-container bg-gray-800 bg-opacity-90 rounded-xl p-4 sm:p-8 relative shadow-lg">
+      <h1 class="text-2xl sm:text-3xl text-center text-teal-300 mb-4">
+        Ứng dụng Mã Hóa & Giải Mã One-Time Pad
+      </h1>
 
       <!-- Mode -->
       <div class="flex items-center gap-4 mb-4">
