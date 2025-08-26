@@ -481,7 +481,17 @@ document.getElementById('btnClearDecrypt').addEventListener('click', () => {
   document.getElementById('decryptKeyHex').value = '';
   document.getElementById('decryptEncPassHex').value = '';
 });
-
+// Clear log trong tab Mã hóa
+document.getElementById('btnClear').addEventListener('click', () => {
+  clearLog();
+  keyHexPre.innerText = '';
+  encPassHexPre.innerText = '';
+  previewContainer.classList.add('hidden');
+  previewImage.src = '';
+  // Xóa input mã hóa
+  document.getElementById('fileInput').value = '';
+  document.getElementById('passwordInput').value = '';
+});
 // Hàm đọc file base64 (dùng chung)
 async function readFileAsBase64(file) {
   const ab = await file.arrayBuffer();

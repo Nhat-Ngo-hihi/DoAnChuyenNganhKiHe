@@ -168,11 +168,7 @@ def decrypt():
     except Exception as e:
         return jsonify({'error': f'Lỗi giải mã: {str(e)}'}), 500
     
-# 🔥 đoạn này phải đặt ngoài cùng, không nằm trong hàm
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
-    
-# Clear log endpoint
+    # Clear log endpoint
 @app.route('/clear_log', methods=['POST'])
 def clear_log():
     try:
@@ -181,3 +177,6 @@ def clear_log():
     except Exception as e:
         return jsonify({"error": f"Lỗi khi xóa log: {str(e)}"}), 500
 
+    # đoạn này đặt ngoài cùng, không nằm trong hàm
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
