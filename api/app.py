@@ -91,10 +91,8 @@ def encrypt():
         )
 
         if out_ext.lower() == 'txt':
-            packed_b64 = base64.b64encode(packed).decode()
-            encrypted_data = base64.b64encode(packed_b64.encode()).decode()
-        else:
-            encrypted_data = base64.b64encode(packed).decode()
+    packed_b64 = base64.b64encode(packed).decode()
+    encrypted_data = base64.b64encode(packed_b64.encode()).decode()
 
         return jsonify({
             'encrypted_data': encrypted_data,
@@ -118,8 +116,7 @@ def decrypt():
         SECRET = b'SECRET_16_BYTE__'
 
         if out_ext.lower() == 'txt':
-            packed_str = base64.b64decode(file_b64).decode()
-            raw = base64.b64decode(packed_str.encode())
+            raw = base64.b64decode(file_b64)   # decode 1 lần
         else:
             raw = base64.b64decode(file_b64)
 
