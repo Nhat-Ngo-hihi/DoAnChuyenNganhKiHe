@@ -168,7 +168,7 @@ def decrypt():
             log_msg = f"✅ Giải mã + giải nén Huffman: {before_size} → {after_size} bytes."
         else:
             original = decrypted_data
-            log_msg = f"✅ Giải mã thành công ({len(original)} bytes, không nén)."
+            log_msg = f"✅ Giải mã thành công ({len(original)} bytes,)."
 
         return jsonify({
             'original_file': base64.b64encode(original).decode(),
