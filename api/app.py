@@ -94,10 +94,11 @@ def encrypt():
             cipher_data
         )
 
+        # Với txt: giữ encode utf-8 để dễ hiển thị
         if out_ext.lower() == 'txt':
-            packed_b64 = base64.b64encode(packed).decode()
-            encrypted_data = base64.b64encode(packed_b64.encode()).decode()
+            encrypted_data = base64.b64encode(packed).decode('utf-8')
         else:
+        # Với bin: giữ nguyên base64 bytes
             encrypted_data = base64.b64encode(packed).decode()
 
         return jsonify({
@@ -122,11 +123,8 @@ def decrypt():
 
         SECRET = b'SECRET_16_BYTE__'
 
-        if out_ext.lower() == 'txt':
-            packed_str = base64.b64decode(file_b64).decode()
-            raw = base64.b64decode(packed_str.encode())
-        else:
-            raw = base64.b64decode(file_b64)
+        # Giải mã base64 1 lần cho tất cả
+        raw = base64.b64decode(file_b64)
 
         idx = 0
         enc_len = int.from_bytes(raw[idx:idx+2], 'big'); idx += 2
