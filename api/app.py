@@ -4,8 +4,6 @@ import base64, os, re
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 
-from huffman import huffman_compress, huffman_decompress
-
 # Xác định thư mục gốc dự án
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -41,36 +39,6 @@ def validate_password(password: str) -> bool:
 def index():
     return render_template('index.html')
 
-# 🔹 Endpoint nén Huffman riêng
-@app.route('/compress', methods=['POST'])
-def compress_file():
-    try:
-        file_b64 = request.json['file']
-        file_bytes = base64.b64decode(file_b64)
-        original_size = len(file_bytes)
-
-        comp_data, codes, padbits = huffman_compress(file_bytes)
-
-        if len(comp_data) + len(dumps((codes, padbits))) >= original_size:
-            log_msg = f"⚠️ Huffman không hiệu quả → giữ nguyên ({original_size} bytes)."
-            comp_data_to_send = file_bytes
-            codes_info = {}
-            padbits_info = 0
-        else:
-            log_msg = f"✅ Đã nén dữ liệu từ {original_size} → {len(comp_data)} bytes (giảm {100-(len(comp_data)/original_size*100):.2f}%)."
-            comp_data_to_send = comp_data
-            codes_info = codes
-            padbits_info = padbits
-
-        return jsonify({
-            'compressed_data_b64': base64.b64encode(comp_data_to_send).decode(),
-            'codes_info': dumps(codes_info).hex(),
-            'padbits': padbits_info,
-            'log': log_msg
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 # Encrypt endpoint
 @app.route('/encrypt', methods=['POST'])
 def encrypt():
@@ -87,16 +55,20 @@ def encrypt():
         file_bytes = base64.b64decode(file_b64)
         original_size = len(file_bytes)
 
+        # 🔹 Nếu chọn nén thì nén trước khi mã hóa
         log_msg = ""
         if compress:
-            from pickle import loads
-            comp_data = file_bytes
-            # Giả lập huffman_info từ frontend
-            codes = loads(bytes.fromhex(data.get('codes_info', '')))
-            padbits = int(data.get('padbits', 0))
-            huffman_info = dumps((codes, padbits))
-            data_to_encrypt = comp_data
-            log_msg += f"✅ Dữ liệu đã nén sẵn từ nút Huffman.\n"
+            from huffman import huffman_compress
+            comp_data, codes, padbits = huffman_compress(file_bytes)
+            if len(comp_data) + len(dumps((codes, padbits))) >= original_size:
+                # fallback nếu không hiệu quả
+                huffman_info = b''
+                data_to_encrypt = file_bytes
+                log_msg += f"⚠️ Huffman không hiệu quả → giữ nguyên ({original_size} bytes).\n"
+            else:
+                huffman_info = dumps((codes, padbits))
+                data_to_encrypt = comp_data
+                log_msg += f"✅ Đã nén dữ liệu từ {original_size} → {len(comp_data)} bytes (giảm {100 - (len(comp_data)/original_size*100):.2f}%).\n"
         else:
             huffman_info = b''
             data_to_encrypt = file_bytes
@@ -135,7 +107,7 @@ def encrypt():
     except Exception as e:
         return jsonify({'error': f'Lỗi mã hóa: {str(e)}'}), 500
 
-# Decrypt endpoint giữ nguyên
+# Decrypt endpoint
 @app.route('/decrypt', methods=['POST'])
 def decrypt():
     try:
@@ -183,10 +155,12 @@ def decrypt():
         else:
             key = key_bytes
 
+        # Giải mã OTP trước
         decrypted_data = otp_xor(cipher_data, key)
 
+        # Nếu có Huffman info → giải nén để khôi phục file gốc
         if huffman_info:
-            from pickle import loads
+            from huffman import huffman_decompress
             codes, padbits = loads(huffman_info)
             before_size = len(decrypted_data)
             original = huffman_decompress(decrypted_data, codes, padbits)
