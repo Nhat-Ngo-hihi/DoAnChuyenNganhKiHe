@@ -91,11 +91,10 @@ def encrypt():
         )
 
         if out_ext.lower() == 'txt':
-        # encode nhị phân thành base64 text
-            encrypted_data = base64.b64encode(packed).decode("utf-8")
+            packed_b64 = base64.b64encode(packed).decode()
+            encrypted_data = base64.b64encode(packed_b64.encode()).decode()
         else:
-            encrypted_data = base64.b64encode(packed).decode("utf-8")
-
+            encrypted_data = base64.b64encode(packed).decode()
 
         return jsonify({
             'encrypted_data': encrypted_data,
@@ -119,16 +118,10 @@ def decrypt():
         SECRET = b'SECRET_16_BYTE__'
 
         if out_ext.lower() == 'txt':
-        try:
-            raw = base64.b64decode(file_b64.encode("utf-8"))
-        except Exception as e:
-        return jsonify({'error': f'Lỗi base64 TXT: {str(e)}'}), 400
+            packed_str = base64.b64decode(file_b64).decode()
+            raw = base64.b64decode(packed_str.encode())
         else:
-        try:
             raw = base64.b64decode(file_b64)
-        except Exception as e:
-        return jsonify({'error': f'Lỗi base64 BIN: {str(e)}'}), 400
-
 
         idx = 0
         enc_len = int.from_bytes(raw[idx:idx+2], 'big'); idx += 2
