@@ -1,3 +1,44 @@
+from pickle import dumps, loads
+from flask import Flask, render_template, request, jsonify
+import base64, os, re
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+
+# Xác định thư mục gốc dự án
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+app = Flask(
+    __name__,
+    static_url_path='/static',
+    template_folder=os.path.join(BASE_DIR, "templates"),
+    static_folder=os.path.join(BASE_DIR, "static")
+)
+
+# OTP XOR
+def otp_xor(data: bytes, key: bytes) -> bytes:
+    return bytes([b ^ key[i % len(key)] for i, b in enumerate(data)])
+
+# AES protect password
+def aes_encrypt(password: str, secret: bytes) -> bytes:
+    cipher = AES.new(secret, AES.MODE_ECB)
+    return cipher.encrypt(pad(password.encode("utf-8"), AES.block_size))
+
+def aes_decrypt(enc_password: bytes, secret: bytes) -> str:
+    cipher = AES.new(secret, AES.MODE_ECB)
+    return unpad(cipher.decrypt(enc_password), AES.block_size).decode("utf-8")
+
+# Check password strength
+def validate_password(password: str) -> bool:
+    if len(password) < 6: return False
+    if not re.search(r"[a-z]", password): return False
+    if not re.search(r"[A-Z]", password): return False
+    if not re.search(r"[^a-zA-Z0-9]", password): return False
+    return True
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
 # --- Encrypt endpoint ---
 @app.route('/encrypt', methods=['POST'])
 def encrypt():
@@ -136,3 +177,10 @@ def decrypt():
 
     except Exception as e:
         return jsonify({'error': f'Lỗi giải mã: {str(e)}'}), 500
+
+@app.route('/clear_log', methods=['POST'])
+def clear_log():
+    return jsonify({"log": ""})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
