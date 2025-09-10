@@ -46,47 +46,47 @@ def encrypt():
         data = request.json
         file_b64 = data['file']
         password = data.get('password', '')
-        compress_key = bool(data.get('compress', False))  # Chỉ nén key
+        compress_key = bool(data.get('compress', False))
         out_ext = data.get('outExt', 'bin')
 
         if not validate_password(password):
-            return jsonify({'error': 'Mật khẩu không hợp lệ (≥6 ký tự, có chữ hoa, chữ thường và ký tự đặc biệt).'}), 400
+            return jsonify({'error': 'Mật khẩu không hợp lệ.'}), 400
 
         file_bytes = base64.b64decode(file_b64)
         original_size = len(file_bytes)
 
-        # 🔑 Tạo OTP key
+        # Tạo OTP key gốc
         key = os.urandom(original_size)
         key_hex = key.hex()
         log_msg = f"🔑 Key HEX gốc: {len(key_hex)} chars.\n"
 
-        # 🔹 Nén khóa OTP dạng hex nếu chọn
+        # Xử lý nén Huffman
         if compress_key:
             from huffman import huffman_compress
             key_bytes_for_compress = key_hex.encode()
             comp_data, codes, padbits = huffman_compress(key_bytes_for_compress)
             if len(comp_data) + len(dumps((codes, padbits))) >= len(key_bytes_for_compress):
                 compressed_key_info = b''
-                compressed_key_hex = key_hex
-                log_msg += f"⚠️ Huffman key không hiệu quả, giữ nguyên ({len(key_hex)} chars).\n"
+                displayed_key_hex = key_hex
+                log_msg += "⚠️ Huffman không hiệu quả, giữ key gốc.\n"
             else:
                 compressed_key_info = dumps((codes, padbits))
-                compressed_key_hex = comp_data.hex()
-                log_msg += f"✅ Huffman key thành công: {len(key_hex)} → {len(comp_data)} bytes ({100-(len(comp_data)/len(key_bytes_for_compress)*100):.2f}% giảm).\n"
+                displayed_key_hex = comp_data.hex()
+                log_msg += f"✅ Huffman thành công: {len(key_hex)} → {len(comp_data)} bytes.\n"
         else:
             compressed_key_info = b''
-            compressed_key_hex = key_hex
-            log_msg += f"📦 Không nén key, giữ nguyên {len(key_hex)} chars.\n"
+            displayed_key_hex = key_hex
+            log_msg += "📦 Không nén key, dùng key gốc.\n"
 
-        # 🔐 OTP encrypt file (không nén file)
+        # OTP encrypt
         cipher_data = otp_xor(file_bytes, key)
 
-        # 🔒 AES bảo vệ password
+        # AES bảo vệ password
         SECRET = b'SECRET_16_BYTE__'
         enc_pass = aes_encrypt(password, SECRET)
         log_msg += "🔒 Password đã được bảo vệ AES.\n"
 
-        # Pack layout: [AES pass][OTP key][Huffman key info][cipher_data]
+        # Pack layout
         packed = (
             len(enc_pass).to_bytes(2, 'big') + enc_pass +
             len(key).to_bytes(4, 'big') + key +
@@ -94,16 +94,11 @@ def encrypt():
             cipher_data
         )
 
-        # Với txt: giữ encode utf-8 để dễ hiển thị
-        if out_ext.lower() == 'txt':
-            encrypted_data = base64.b64encode(packed).decode('utf-8')
-        else:
-        # Với bin: giữ nguyên base64 bytes
-            encrypted_data = base64.b64encode(packed).decode()
+        encrypted_data = base64.b64encode(packed).decode()
 
         return jsonify({
             'encrypted_data': encrypted_data,
-            'key_hex': compressed_key_hex,
+            'key_hex': displayed_key_hex,
             'enc_pass_hex': enc_pass.hex(),
             'log': log_msg + f"✅ Mã hóa hoàn tất ({original_size} bytes dữ liệu)."
         })
@@ -123,10 +118,10 @@ def decrypt():
 
         SECRET = b'SECRET_16_BYTE__'
 
-        # Giải mã base64 1 lần cho tất cả
+        # Decode base64
         raw = base64.b64decode(file_b64)
-
         idx = 0
+
         enc_len = int.from_bytes(raw[idx:idx+2], 'big'); idx += 2
         enc_pass = raw[idx:idx+enc_len]; idx += enc_len
 
@@ -138,50 +133,45 @@ def decrypt():
 
         cipher_data = raw[idx:]
 
-        # Kiểm tra AES password
+        # AES password check
         try:
             dec_pass = aes_decrypt(enc_pass, SECRET)
         except Exception:
-            return jsonify({'error': 'Lỗi AES: dữ liệu AES không hợp lệ.'}), 500
-
+            return jsonify({'error': 'AES không hợp lệ.'}), 500
         if dec_pass != password:
             return jsonify({'error': 'Sai mật khẩu AES.'}), 403
 
-        # Dùng key từ người dùng hoặc từ file
+        # Xử lý key nhập
         if user_key_hex:
-            try:
+            if compressed_key_info:
+                # Key nén Huffman → giải nén ra key gốc
+                from huffman import huffman_decompress
+                comp_bytes = bytes.fromhex(user_key_hex)
+                codes, padbits = loads(compressed_key_info)
+                key = huffman_decompress(comp_bytes, codes, padbits)
+                key = bytes.fromhex(key.decode())
+            else:
                 key = bytes.fromhex(user_key_hex)
-            except Exception:
-                return jsonify({'error': 'Key HEX không hợp lệ.'}), 400
         else:
             key = key_bytes
 
-        # Giải mã OTP
+        # OTP decrypt
         decrypted_data = otp_xor(cipher_data, key)
 
-        # Giải nén key Huffman nếu có
-        if compressed_key_info:
-            from huffman import huffman_decompress
-            codes, padbits = loads(compressed_key_info)
-            log_msg = "✅ Key nén Huffman đã giải nén thành công.\n"
-        else:
-            log_msg = "✅ Key không nén.\n"
-
         if out_ext.lower() == 'txt':
-            # Trả về text
             original_file = decrypted_data.decode('utf-8', errors='ignore')
         else:
-            # Trả về bin (base64 để JSON an toàn)
             original_file = base64.b64encode(decrypted_data).decode()
 
+        log_msg = "✅ Key đã xử lý thành công.\n"
         return jsonify({
             'original_file': original_file,
-    '        log': log_msg + f"✅ Giải mã thành công ({len(decrypted_data)} bytes)."
+            'log': log_msg + f"✅ Giải mã thành công ({len(decrypted_data)} bytes)."
         })
 
     except Exception as e:
         return jsonify({'error': f'Lỗi giải mã: {str(e)}'}), 500
-
+        
 @app.route('/clear_log', methods=['POST'])
 def clear_log():
     return jsonify({"log": ""})
