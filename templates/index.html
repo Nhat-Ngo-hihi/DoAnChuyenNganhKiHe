@@ -418,7 +418,11 @@ document.getElementById('btnAction').addEventListener('click', async () => {
 
       const filename = `${outName}.${outExt}`;
       downloadBinaryFromBase64(data.encrypted_data, filename);
+
+  // 🔹 Hiển thị log chi tiết từ server (có nén/không nén + mã hóa)
+      if (data.log) log(data.log);
       log(`✅ Mã hóa xong — file đã tải về (${filename}).`);
+
     } catch (e) {
       log(`❌ Lỗi: ${e.message}`);
     }
@@ -458,13 +462,15 @@ document.getElementById('btnDecrypt').addEventListener('click', async () => {
     });
     const data = await res.json();
     if (data.error) {
-      log("❌ " + data.error);
-      return;
+    log("❌ " + data.error);
+    return;
     }
     const filename = `${outName}.${outExt}`;
     downloadBinaryFromBase64(data.original_file, filename);
+    if (data.log) log(data.log);
     log(`✅ Giải mã xong — file đã tải về (${filename}).`);
     showPreviewIfImage(data.original_file, outExt);
+
   } catch (e) {
     log(`❌ Lỗi: ${e.message}`);
   }
