@@ -157,26 +157,18 @@ def decrypt():
         else:
             key = key_bytes
 
-       # OTP decrypt
-decrypted_data = otp_xor(cipher_data, key)
+        # OTP decrypt
+        decrypted_data = otp_xor(cipher_data, key)
+        
+        # Trả về Base64 để JS xử lý UTF-8-safe
+        original_file_b64 = base64.b64encode(decrypted_data).decode()
+        
+        log_msg = "✅ Key đã xử lý thành công.\n"
+        return jsonify({
+            'original_file': original_file_b64,
+            'log': log_msg + f"✅ Giải mã thành công ({len(decrypted_data)} bytes)."
+        })
 
-# Xử lý xuất file theo kiểu text hay binary
-if out_ext.lower() == 'txt':
-    try:
-        # Chuyển sang ASCII-safe bằng base64 để JS decode
-        original_file_ascii = decrypted_data.decode('utf-8', errors='replace')  # giữ ký tự hợp lệ, ký tự lỗi thay bằng �
-        original_file = original_file_ascii
-    except Exception:
-        return jsonify({'error': 'Dữ liệu TXT không hợp lệ UTF-8'}), 400
-else:
-    # Binary → Base64
-    original_file = base64.b64encode(decrypted_data).decode()
-
-log_msg = "✅ Key đã xử lý thành công.\n"
-return jsonify({
-    'original_file': original_file,
-    'log': log_msg + f"✅ Giải mã thành công ({len(decrypted_data)} bytes)."
-})
     except Exception as e:
         return jsonify({'error': f'Lỗi giải mã: {str(e)}'}), 500
 
