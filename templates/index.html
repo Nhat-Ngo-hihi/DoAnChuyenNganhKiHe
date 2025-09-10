@@ -114,16 +114,16 @@
 
               </select>
             </div>
+              <div class="flex items-center gap-2">
+              <input id="compression" type="checkbox" />
+              <label for="compression">Nén key (Huffman)</label>
+            </div>
           </div>
 
           <div class="flex justify-center gap-4">
             <button id="btnAction" class="bg-teal-600 px-6 py-2 rounded">Mã Hóa</button>
             <button id="btnExport" class="bg-yellow-600 px-4 py-2 rounded">Xuất Key + Log</button>
             <button id="btnClear" class="bg-gray-600 px-4 py-2 rounded">Xóa log</button>
-          </div>
-            <div class="flex justify-center gap-4 mt-2">
-            <button id="btnCompress" class="bg-blue-600 px-4 py-2 rounded">Nén Huffman</button>
-            <span id="compressResult" class="text-sm ml-2"></span>
           </div>
 
           <div>
@@ -215,7 +215,7 @@
   100% { transform: translateX(-100%); }
 }
 </style>
-  
+
 <script>
   // Bọc text vào <span> để chạy animation
   const footer = document.querySelector(".footer-marquee");
@@ -291,36 +291,6 @@ const encPassHexPre = document.getElementById('encPassHex');
 const logDiv = document.getElementById('log');
 const previewContainer = document.getElementById('previewContainer');
 const previewImage = document.getElementById('previewImage');
-// Biến tạm lưu dữ liệu nén Huffman
-let tempCompressed = null;  // lưu dữ liệu nén tạm thời
-let tempCodesInfo = null;
-let tempPadbits = null;
-
-// Nút Nén Huffman
-document.getElementById('btnCompress').addEventListener('click', async () => {
-    const file = document.getElementById('fileInput').files[0];
-    if (!file) { log("⚠️ Chưa chọn file để nén."); return; }
-
-    const b64 = await readFileAsBase64(file);
-    log("🟢 Gửi request nén Huffman...");
-    try {
-        const res = await fetch('/compress', {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({file: b64})
-        });
-        const data = await res.json();
-        if (data.error) { log("❌ " + data.error); return; }
-
-        tempCompressed = data.compressed_data_b64;
-        tempCodesInfo = data.codes_info;
-        tempPadbits = data.padbits;
-        document.getElementById('compressResult').innerText = data.log;
-        log("🟢 " + data.log);
-    } catch(e) {
-        log("❌ Lỗi nén Huffman: " + e.message);
-    }
-});
 
 function log(msg) {
   logDiv.innerText += msg + "\n";
@@ -426,33 +396,21 @@ document.getElementById('btnAction').addEventListener('click', async () => {
   if (mode === 'encrypt') {
     const file = document.getElementById('fileInput').files[0];
     const password = document.getElementById('passwordInput').value;
-    const compress = false; // Nén key đã bỏ
+    const compress = document.getElementById('compression').checked;
     const outName = document.getElementById('outName').value || 'result';
     const outExt = document.getElementById('outExt').value || 'bin';
 
     if (!file) return log("⚠️ Chưa chọn file.");
     if (!password) return log("⚠️ Chưa nhập mật khẩu.");
 
-  const b64 = await readFileAsBase64(file);
-  log("🔐 Gửi request mã hóa...");
-
-  const dataToSendB64 = tempCompressed || b64;  // nếu đã nén thì dùng tempCompressed
-  const compressFlag = !!tempCompressed;       // đánh dấu là đã nén
-
-  try {
-  const res = await fetch('/encrypt', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-        file: dataToSendB64,
-        password,
-        compress: compressFlag,
-        codes_info: tempCodesInfo,
-        padbits: tempPadbits,
-        outExt
-    })
-  });
-
+    const b64 = await readFileAsBase64(file);
+    log("🔐 Gửi request mã hóa...");
+    try {
+      const res = await fetch('/encrypt', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({file: b64, password, compress, outExt})
+      });
       const data = await res.json();
       if (data.error) { log("❌ " + data.error); return; }
       if (data.key_hex) keyHexPre.innerText = data.key_hex;
