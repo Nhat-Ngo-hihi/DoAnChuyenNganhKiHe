@@ -71,11 +71,20 @@ def encrypt():
         enc_pass = aes_encrypt(password, SECRET)
 
         # Optionally compress key
+        log_msg = ""
         if compress:
             from huffman import huffman_compress
-            comp_key, tree, padbits = huffman_compress(key)
-            huffman_info = dumps((tree, padbits))
-            key_to_store = comp_key
+            comp_key, codes, padbits = huffman_compress(key)
+
+            # fallback nếu không hiệu quả
+            if len(comp_key) + len(dumps((codes, padbits))) >= len(key):
+                huffman_info = b''
+                key_to_store = key
+                log_msg += "⚠️ Huffman không hiệu quả → giữ nguyên key gốc.\n"
+            else:
+                huffman_info = dumps((codes, padbits))
+                key_to_store = comp_key
+                log_msg += f"✅ Đã nén key bằng Huffman (từ {len(key)} → {len(comp_key)} bytes).\n"
         else:
             huffman_info = b''
             key_to_store = key
@@ -98,7 +107,7 @@ def encrypt():
             'encrypted_data': encrypted_data,
             'key_hex': key.hex(),
             'enc_pass_hex': enc_pass.hex(),
-            'log': f'Đã mã hóa ({len(file_bytes)} bytes). Key hiển thị để bạn lưu/chia sẻ.'
+            'log': f'{log_msg}Đã mã hóa ({len(file_bytes)} bytes). Key hiển thị để bạn lưu/chia sẻ.'
         })
     except Exception as e:
         return jsonify({'error': f'Lỗi mã hóa: {str(e)}'}), 500
@@ -150,8 +159,8 @@ def decrypt():
         else:
             if huffman_info:
                 from huffman import huffman_decompress
-                tree, padbits = loads(huffman_info)
-                key = huffman_decompress(key_bytes, tree, padbits)
+                codes, padbits = loads(huffman_info)
+                key = huffman_decompress(key_bytes, codes, padbits)
             else:
                 key = key_bytes
 
@@ -167,16 +176,15 @@ def decrypt():
         })
     except Exception as e:
         return jsonify({'error': f'Lỗi giải mã: {str(e)}'}), 500
-    
-    # Clear log endpoint
+
+# Clear log endpoint
 @app.route('/clear_log', methods=['POST'])
 def clear_log():
     try:
-        # trả về JSON rỗng log
         return jsonify({"log": ""})
     except Exception as e:
         return jsonify({"error": f"Lỗi khi xóa log: {str(e)}"}), 500
 
-    # đoạn này đặt ngoài cùng, không nằm trong hàm
+# Run app
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
