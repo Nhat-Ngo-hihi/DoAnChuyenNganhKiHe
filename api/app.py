@@ -39,7 +39,7 @@ def validate_password(password: str) -> bool:
 def index():
     return render_template('index.html')
 
-# Encrypt
+# Encrypt endpoint
 @app.route('/encrypt', methods=['POST'])
 def encrypt():
     try:
@@ -53,41 +53,43 @@ def encrypt():
             return jsonify({'error': 'Mật khẩu không hợp lệ (≥6 ký tự, có chữ hoa, chữ thường và ký tự đặc biệt).'}), 400
 
         file_bytes = base64.b64decode(file_b64)
+        original_size = len(file_bytes)
 
-        # Tạo OTP key
-        key = os.urandom(len(file_bytes))
-
-        # OTP encrypt
-        cipher_data = otp_xor(file_bytes, key)
-
-        # AES protect password
-        SECRET = b'SECRET_16_BYTE__'
-        enc_pass = aes_encrypt(password, SECRET)
-
+        # 🔹 Nếu chọn nén thì nén trước khi mã hóa
         log_msg = ""
         if compress:
             from huffman import huffman_compress
-            comp_cipher, codes, padbits = huffman_compress(cipher_data)
-
-            if len(comp_cipher) + len(dumps((codes, padbits))) >= len(cipher_data):
-                # fallback
+            comp_data, codes, padbits = huffman_compress(file_bytes)
+            if len(comp_data) + len(dumps((codes, padbits))) >= original_size:
+                # fallback nếu không hiệu quả
                 huffman_info = b''
-                cipher_to_store = cipher_data
-                log_msg += "⚠️ Huffman không hiệu quả → giữ nguyên dữ liệu.\n"
+                data_to_encrypt = file_bytes
+                log_msg += f"⚠️ Huffman không hiệu quả → giữ nguyên ({original_size} bytes).\n"
             else:
                 huffman_info = dumps((codes, padbits))
-                cipher_to_store = comp_cipher
-                log_msg += f"✅ Đã nén dữ liệu bằng Huffman (từ {len(cipher_data)} → {len(comp_cipher)} bytes).\n"
+                data_to_encrypt = comp_data
+                log_msg += f"✅ Đã nén dữ liệu từ {original_size} → {len(comp_data)} bytes (giảm {100 - (len(comp_data)/original_size*100):.2f}%).\n"
         else:
             huffman_info = b''
-            cipher_to_store = cipher_data
+            data_to_encrypt = file_bytes
+            log_msg += f"📦 Không nén, dữ liệu giữ nguyên {original_size} bytes.\n"
+
+        # 🔑 Tạo OTP key
+        key = os.urandom(len(data_to_encrypt))
+
+        # 🔐 OTP encrypt
+        cipher_data = otp_xor(data_to_encrypt, key)
+
+        # 🔒 AES protect password
+        SECRET = b'SECRET_16_BYTE__'
+        enc_pass = aes_encrypt(password, SECRET)
 
         # Pack layout: [AES pass][OTP key][huffman info][cipher_data]
         packed = (
             len(enc_pass).to_bytes(2, 'big') + enc_pass +
             len(key).to_bytes(4, 'big') + key +
             len(huffman_info).to_bytes(4, 'big') + huffman_info +
-            cipher_to_store
+            cipher_data
         )
 
         if out_ext.lower() == 'txt':
@@ -100,12 +102,12 @@ def encrypt():
             'encrypted_data': encrypted_data,
             'key_hex': key.hex(),
             'enc_pass_hex': enc_pass.hex(),
-            'log': f'{log_msg}Đã mã hóa ({len(file_bytes)} bytes).'
+            'log': log_msg + f"🔒 Đã mã hóa hoàn tất ({len(file_bytes)} bytes ban đầu)."
         })
     except Exception as e:
         return jsonify({'error': f'Lỗi mã hóa: {str(e)}'}), 500
 
-# Decrypt
+# Decrypt endpoint
 @app.route('/decrypt', methods=['POST'])
 def decrypt():
     try:
@@ -133,9 +135,9 @@ def decrypt():
         info_len = int.from_bytes(raw[idx:idx+4], 'big'); idx += 4
         huffman_info = raw[idx:idx+info_len] if info_len > 0 else b''; idx += info_len
 
-        cipher_stored = raw[idx:]
+        cipher_data = raw[idx:]
 
-        # AES check
+        # Kiểm tra AES password
         try:
             dec_pass = aes_decrypt(enc_pass, SECRET)
         except Exception as e:
@@ -144,7 +146,7 @@ def decrypt():
         if dec_pass != password:
             return jsonify({'error': 'Sai mật khẩu AES (mật khẩu không trùng).'}), 403
 
-        # Key
+        # Dùng key
         if user_key_hex:
             try:
                 key = bytes.fromhex(user_key_hex)
@@ -153,24 +155,22 @@ def decrypt():
         else:
             key = key_bytes
 
-        # Huffman decompress if needed
+        # Giải mã OTP trước
+        decrypted_data = otp_xor(cipher_data, key)
+
+        # Nếu có Huffman info → giải nén để khôi phục file gốc
         if huffman_info:
             from huffman import huffman_decompress
             codes, padbits = loads(huffman_info)
-            cipher_data = huffman_decompress(cipher_stored, codes, padbits)
+            original = huffman_decompress(decrypted_data, codes, padbits)
+            log_msg = f"✅ Giải mã và giải nén thành công ({len(original)} bytes)."
         else:
-            cipher_data = cipher_stored
-
-        # OTP decrypt
-        if len(key) < len(cipher_data):
-            repeats = (len(cipher_data) + len(key) - 1) // len(key)
-            key = (key * repeats)[:len(cipher_data)]
-
-        original = otp_xor(cipher_data, key)
+            original = decrypted_data
+            log_msg = f"✅ Giải mã thành công ({len(original)} bytes, không nén)."
 
         return jsonify({
             'original_file': base64.b64encode(original).decode(),
-            'log': f'Giải mã thành công ({len(original)} bytes).'
+            'log': log_msg
         })
     except Exception as e:
         return jsonify({'error': f'Lỗi giải mã: {str(e)}'}), 500
