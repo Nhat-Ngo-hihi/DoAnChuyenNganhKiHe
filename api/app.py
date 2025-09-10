@@ -171,7 +171,7 @@ def decrypt():
 
     except Exception as e:
         return jsonify({'error': f'Lỗi giải mã: {str(e)}'}), 500
-        
+
 @app.route('/clear_log', methods=['POST'])
 def clear_log():
     return jsonify({"log": ""})
