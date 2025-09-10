@@ -75,7 +75,7 @@ def encrypt():
                 original_size_bytes = len(key_bytes_for_compress)
                 compressed_size_bytes = len(comp_data)
                 percent_saved = 100 * (original_size_bytes - compressed_size_bytes) / original_size_bytes
-                log_msg += f"✅ Huffman thành công: {original_size_bytes} → {compressed_size_bytes} bytes ({percent_saved:.2f}% giảm).\n"
+                log_msg += f"✅ Huffman thành công: {original_size_bytes} → {compressed_size_bytes} bytes giảm ({percent_saved:.2f}% ).\n"
 
         else:
             compressed_key_info = b''
@@ -163,10 +163,11 @@ def decrypt():
         decrypted_data = otp_xor(cipher_data, key)
 
         if out_ext.lower() == 'txt':
-            # Trả về text nguyên bản, decode UTF-8
-            original_file = decrypted_data.decode('utf-8')  # không dùng errors='ignore'
+            try:
+                original_file = decrypted_data.decode('utf-8')
+            except UnicodeDecodeError:
+            return jsonify({'error': 'Dữ liệu văn bản không hợp lệ UTF-8'}), 400
         else:
-            # Trả về nhị phân, dùng base64 để JSON an toàn
             original_file = base64.b64encode(decrypted_data).decode()
 
         log_msg = "✅ Key đã xử lý thành công.\n"
