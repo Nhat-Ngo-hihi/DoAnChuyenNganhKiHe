@@ -54,7 +54,7 @@ def encrypt():
 
         file_bytes = base64.b64decode(file_b64)
 
-        # OTP key
+        # Tạo OTP key
         key = os.urandom(len(file_bytes))
 
         # OTP encrypt
@@ -70,6 +70,7 @@ def encrypt():
             comp_cipher, codes, padbits = huffman_compress(cipher_data)
 
             if len(comp_cipher) + len(dumps((codes, padbits))) >= len(cipher_data):
+                # fallback
                 huffman_info = b''
                 cipher_to_store = cipher_data
                 log_msg += "⚠️ Huffman không hiệu quả → giữ nguyên dữ liệu.\n"
@@ -81,7 +82,7 @@ def encrypt():
             huffman_info = b''
             cipher_to_store = cipher_data
 
-        # Pack layout
+        # Pack layout: [AES pass][OTP key][huffman info][cipher_data]
         packed = (
             len(enc_pass).to_bytes(2, 'big') + enc_pass +
             len(key).to_bytes(4, 'big') + key +
@@ -89,8 +90,11 @@ def encrypt():
             cipher_to_store
         )
 
-        # ❌ Bỏ double-base64
-        encrypted_data = base64.b64encode(packed).decode()
+        if out_ext.lower() == 'txt':
+            packed_b64 = base64.b64encode(packed).decode()
+            encrypted_data = base64.b64encode(packed_b64.encode()).decode()
+        else:
+            encrypted_data = base64.b64encode(packed).decode()
 
         return jsonify({
             'encrypted_data': encrypted_data,
@@ -101,8 +105,6 @@ def encrypt():
     except Exception as e:
         return jsonify({'error': f'Lỗi mã hóa: {str(e)}'}), 500
 
-
-
 # Decrypt
 @app.route('/decrypt', methods=['POST'])
 def decrypt():
@@ -111,11 +113,15 @@ def decrypt():
         file_b64 = data['file']
         password = data.get('password', '')
         user_key_hex = data.get('key_hex', '').strip()
+        out_ext = data.get('outExt', 'bin')
 
         SECRET = b'SECRET_16_BYTE__'
 
-        # ❌ Bỏ decode lồng nhau
-        raw = base64.b64decode(file_b64)
+        if out_ext.lower() == 'txt':
+            packed_str = base64.b64decode(file_b64).decode()
+            raw = base64.b64decode(packed_str.encode())
+        else:
+            raw = base64.b64decode(file_b64)
 
         idx = 0
         enc_len = int.from_bytes(raw[idx:idx+2], 'big'); idx += 2
@@ -147,7 +153,7 @@ def decrypt():
         else:
             key = key_bytes
 
-        # Huffman decompress
+        # Huffman decompress if needed
         if huffman_info:
             from huffman import huffman_decompress
             codes, padbits = loads(huffman_info)
