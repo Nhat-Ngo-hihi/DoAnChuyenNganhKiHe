@@ -1,58 +1,71 @@
 # huffman.py
-from collections import Counter, namedtuple
+from collections import Counter
 import heapq
 
-Node = namedtuple("Node", ["char", "freq", "left", "right"])
+class Node:
+    def __init__(self, char=None, freq=0, left=None, right=None):
+        self.char = char
+        self.freq = freq
+        self.left = left
+        self.right = right
+    def __lt__(self, other):
+        return self.freq < other.freq
 
-def build_tree(data):
-    if not data:
-        return None
+def build_tree(data: bytes):
     freq = Counter(data)
-    heap = [[freq[char], Node(char, freq[char], None, None)] for char in freq]
+    heap = [Node(ch, fr) for ch, fr in freq.items()]
     heapq.heapify(heap)
     while len(heap) > 1:
         lo = heapq.heappop(heap)
         hi = heapq.heappop(heap)
-        merged = Node(None, lo[0] + hi[0], lo[1], hi[1])
-        heapq.heappush(heap, [merged.freq, merged])
-    return heap[0][1]
+        merged = Node(None, lo.freq + hi.freq, lo, hi)
+        heapq.heappush(heap, merged)
+    return heap[0] if heap else None
 
 def build_codes(node, prefix="", codebook=None):
     if codebook is None:
         codebook = {}
-    if node is None:
+    if not node:
         return codebook
     if node.char is not None:
-        codebook[node.char] = prefix
+        codebook[node.char] = prefix or "0"  # nếu chỉ có 1 ký tự
     else:
         build_codes(node.left, prefix + "0", codebook)
         build_codes(node.right, prefix + "1", codebook)
     return codebook
 
-def huffman_compress(data):
+def huffman_compress(data: bytes):
     if not data:
-        return b'', None, 0
+        return b"", {}, 0
     tree = build_tree(data)
     codes = build_codes(tree)
-    encoded = "".join(codes[byte] for byte in data)
+
+    encoded = "".join(codes[b] for b in data)
     padding_bits = (8 - len(encoded) % 8) % 8
     encoded += "0" * padding_bits
-    b = bytearray()
-    for i in range(0, len(encoded), 8):
-        b.append(int(encoded[i:i+8], 2))
-    return bytes(b), tree, padding_bits
 
-def huffman_decompress(data, tree, padding_bits):
-    if not data or tree is None:
-        return b''
-    bit_str = "".join(f"{byte:08b}" for byte in data)
+    out = bytearray()
+    for i in range(0, len(encoded), 8):
+        out.append(int(encoded[i:i+8], 2))
+
+    return bytes(out), codes, padding_bits
+
+def huffman_decompress(data: bytes, codes: dict, padding_bits: int):
+    if not data or not codes:
+        return b""
+
+    # đảo ngược codebook
+    rev = {v: k for k, v in codes.items()}
+
+    bit_str = "".join(f"{b:08b}" for b in data)
     if padding_bits:
         bit_str = bit_str[:-padding_bits]
+
     result = bytearray()
-    node = tree
+    buf = ""
     for bit in bit_str:
-        node = node.left if bit == "0" else node.right
-        if node.char is not None:
-            result.append(node.char)
-            node = tree
+        buf += bit
+        if buf in rev:
+            result.append(rev[buf])
+            buf = ""
     return bytes(result)
