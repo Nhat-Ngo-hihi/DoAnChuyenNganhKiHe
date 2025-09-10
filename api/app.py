@@ -55,33 +55,36 @@ def encrypt():
         file_bytes = base64.b64decode(file_b64)
         original_size = len(file_bytes)
 
-        # Nén Huffman nếu chọn
+        # 🔹 Nếu chọn nén thì nén trước khi mã hóa
         log_msg = ""
         if compress:
             from huffman import huffman_compress
             comp_data, codes, padbits = huffman_compress(file_bytes)
             if len(comp_data) + len(dumps((codes, padbits))) >= original_size:
+                # fallback nếu không hiệu quả
                 huffman_info = b''
                 data_to_encrypt = file_bytes
                 log_msg += f"⚠️ Huffman không hiệu quả → giữ nguyên ({original_size} bytes).\n"
             else:
                 huffman_info = dumps((codes, padbits))
                 data_to_encrypt = comp_data
-                log_msg += f"✅ Đã nén dữ liệu từ {original_size} → {len(comp_data)} bytes.\n"
+                log_msg += f"✅ Đã nén dữ liệu từ {original_size} → {len(comp_data)} bytes (giảm {100 - (len(comp_data)/original_size*100):.2f}%).\n"
         else:
             huffman_info = b''
             data_to_encrypt = file_bytes
             log_msg += f"📦 Không nén, dữ liệu giữ nguyên {original_size} bytes.\n"
 
-        # OTP key
+        # 🔑 Tạo OTP key
         key = os.urandom(len(data_to_encrypt))
+
+        # 🔐 OTP encrypt
         cipher_data = otp_xor(data_to_encrypt, key)
 
-        # AES protect password
+        # 🔒 AES protect password
         SECRET = b'SECRET_16_BYTE__'
         enc_pass = aes_encrypt(password, SECRET)
 
-        # Pack dữ liệu: AES pass + OTP key + Huffman + cipher
+        # Pack layout: [AES pass][OTP key][huffman info][cipher_data]
         packed = (
             len(enc_pass).to_bytes(2, 'big') + enc_pass +
             len(key).to_bytes(4, 'big') + key +
@@ -89,17 +92,17 @@ def encrypt():
             cipher_data
         )
 
-        # Chuyển sang text nếu txt, else binary
         if out_ext.lower() == 'txt':
-            encrypted_data = base64.b64encode(packed).decode()
+            packed_b64 = base64.b64encode(packed).decode()
+            encrypted_data = base64.b64encode(packed_b64.encode()).decode()
         else:
-            encrypted_data = packed.hex()  # hex là dạng nhị phân biểu diễn text, có thể ghi ra bin
+            encrypted_data = base64.b64encode(packed).decode()
 
         return jsonify({
             'encrypted_data': encrypted_data,
             'key_hex': key.hex(),
             'enc_pass_hex': enc_pass.hex(),
-            'log': log_msg + f"🔒 Đã mã hóa hoàn tất ({len(file_bytes)} bytes)."
+            'log': log_msg + f"🔒 Đã mã hóa hoàn tất ({len(file_bytes)} bytes ban đầu)."
         })
     except Exception as e:
         return jsonify({'error': f'Lỗi mã hóa: {str(e)}'}), 500
@@ -109,18 +112,18 @@ def encrypt():
 def decrypt():
     try:
         data = request.json
-        file_text = data['file']
+        file_b64 = data['file']
         password = data.get('password', '')
         user_key_hex = data.get('key_hex', '').strip()
         out_ext = data.get('outExt', 'bin')
 
         SECRET = b'SECRET_16_BYTE__'
 
-        # Chuyển text về nhị phân
         if out_ext.lower() == 'txt':
-            raw = base64.b64decode(file_text.encode())
+            packed_str = base64.b64decode(file_b64).decode()
+            raw = base64.b64decode(packed_str.encode())
         else:
-            raw = bytes.fromhex(file_text)
+            raw = base64.b64decode(file_b64)
 
         idx = 0
         enc_len = int.from_bytes(raw[idx:idx+2], 'big'); idx += 2
@@ -134,31 +137,38 @@ def decrypt():
 
         cipher_data = raw[idx:]
 
-        # AES password check
+        # Kiểm tra AES password
         try:
             dec_pass = aes_decrypt(enc_pass, SECRET)
         except Exception:
-            return jsonify({'error': 'Dữ liệu AES không hợp lệ.'}), 500
-        if dec_pass != password:
-            return jsonify({'error': 'Sai mật khẩu AES.'}), 403
+            return jsonify({'error': f'Lỗi AES: dữ liệu AES không hợp lệ.'}), 500
 
-        # Dùng OTP key
+        if dec_pass != password:
+            return jsonify({'error': 'Sai mật khẩu AES (mật khẩu không trùng).'}), 403
+
+        # Dùng key
         if user_key_hex:
-            key = bytes.fromhex(user_key_hex)
+            try:
+                key = bytes.fromhex(user_key_hex)
+            except Exception:
+                return jsonify({'error': 'Key HEX không hợp lệ.'}), 400
         else:
             key = key_bytes
 
+        # Giải mã OTP trước
         decrypted_data = otp_xor(cipher_data, key)
 
-        # Huffman decompress nếu có
+        # Nếu có Huffman info → giải nén để khôi phục file gốc
         if huffman_info:
             from huffman import huffman_decompress
             codes, padbits = loads(huffman_info)
+            before_size = len(decrypted_data)
             original = huffman_decompress(decrypted_data, codes, padbits)
-            log_msg = f"✅ Giải mã + giải nén Huffman thành công ({len(original)} bytes)."
+            after_size = len(original)
+            log_msg = f"✅ Giải mã + giải nén Huffman: {before_size} → {after_size} bytes."
         else:
             original = decrypted_data
-            log_msg = f"✅ Giải mã thành công ({len(original)} bytes)."
+            log_msg = f"✅ Giải mã thành công ({len(original)} bytes,)."
 
         return jsonify({
             'original_file': base64.b64encode(original).decode(),
