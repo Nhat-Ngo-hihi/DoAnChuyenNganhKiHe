@@ -1,45 +1,4 @@
-from pickle import dumps, loads
-from flask import Flask, render_template, request, jsonify
-import base64, os, re
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
-
-# Xác định thư mục gốc dự án
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-app = Flask(
-    __name__,
-    static_url_path='/static',
-    template_folder=os.path.join(BASE_DIR, "templates"),
-    static_folder=os.path.join(BASE_DIR, "static")
-)
-
-# OTP XOR
-def otp_xor(data: bytes, key: bytes) -> bytes:
-    return bytes([b ^ key[i % len(key)] for i, b in enumerate(data)])
-
-# AES protect password
-def aes_encrypt(password: str, secret: bytes) -> bytes:
-    cipher = AES.new(secret, AES.MODE_ECB)
-    return cipher.encrypt(pad(password.encode("utf-8"), AES.block_size))
-
-def aes_decrypt(enc_password: bytes, secret: bytes) -> str:
-    cipher = AES.new(secret, AES.MODE_ECB)
-    return unpad(cipher.decrypt(enc_password), AES.block_size).decode("utf-8")
-
-# Check password strength
-def validate_password(password: str) -> bool:
-    if len(password) < 6: return False
-    if not re.search(r"[a-z]", password): return False
-    if not re.search(r"[A-Z]", password): return False
-    if not re.search(r"[^a-zA-Z0-9]", password): return False
-    return True
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-# Encrypt endpoint
+# --- Encrypt endpoint ---
 @app.route('/encrypt', methods=['POST'])
 def encrypt():
     try:
@@ -60,22 +19,25 @@ def encrypt():
         key_hex = key.hex()
         log_msg = f"🔑 Key HEX gốc: {len(key_hex)} chars.\n"
 
-        # Xử lý nén Huffman
+        # --- Xử lý nén Huffman ---
         if compress_key:
             from huffman import huffman_compress
             key_bytes_for_compress = key_hex.encode()
             comp_data, codes, padbits = huffman_compress(key_bytes_for_compress)
             if len(comp_data) + len(dumps((codes, padbits))) >= len(key_bytes_for_compress):
                 compressed_key_info = b''
-                displayed_key_hex = key_hex
+                displayed_key = key_hex
                 log_msg += "⚠️ Huffman không hiệu quả, giữ key gốc.\n"
             else:
                 compressed_key_info = dumps((codes, padbits))
-                displayed_key_hex = comp_data.hex()
-                log_msg += f"✅ Huffman thành công: {len(key_hex)} → {len(comp_data)} bytes.\n"
+                displayed_key = base64.b64encode(comp_data).decode()  # dùng base64 để hiển thị ngắn
+                original_bytes = len(key_bytes_for_compress)
+                compressed_bytes = len(comp_data)
+                percent_saved = 100 * (original_bytes - compressed_bytes) / original_bytes
+                log_msg += f"✅ Huffman thành công: {original_bytes} → {compressed_bytes} bytes ({percent_saved:.2f}% giảm).\n"
         else:
             compressed_key_info = b''
-            displayed_key_hex = key_hex
+            displayed_key = key_hex
             log_msg += "📦 Không nén key, dùng key gốc.\n"
 
         # OTP encrypt
@@ -93,12 +55,11 @@ def encrypt():
             len(compressed_key_info).to_bytes(4, 'big') + compressed_key_info +
             cipher_data
         )
-
         encrypted_data = base64.b64encode(packed).decode()
 
         return jsonify({
             'encrypted_data': encrypted_data,
-            'key_hex': displayed_key_hex,
+            'key_hex': displayed_key,  # key hiển thị cho ô input / tải file
             'enc_pass_hex': enc_pass.hex(),
             'log': log_msg + f"✅ Mã hóa hoàn tất ({original_size} bytes dữ liệu)."
         })
@@ -106,19 +67,19 @@ def encrypt():
     except Exception as e:
         return jsonify({'error': f'Lỗi mã hóa: {str(e)}'}), 500
 
-# Decrypt endpoint
+
+# --- Decrypt endpoint ---
 @app.route('/decrypt', methods=['POST'])
 def decrypt():
     try:
         data = request.json
         file_b64 = data['file']
         password = data.get('password', '')
-        user_key_hex = data.get('key_hex', '').strip()
+        user_key_input = data.get('key_hex', '').strip()  # có thể là base64 nếu nén Huffman
         out_ext = data.get('outExt', 'bin')
 
         SECRET = b'SECRET_16_BYTE__'
 
-        # Decode base64
         raw = base64.b64decode(file_b64)
         idx = 0
 
@@ -141,25 +102,29 @@ def decrypt():
         if dec_pass != password:
             return jsonify({'error': 'Sai mật khẩu AES.'}), 403
 
-        # Xử lý key nhập
-        if user_key_hex:
+        # --- Xử lý key nhập ---
+        if user_key_input:
             if compressed_key_info:
-                # Key nén Huffman → giải nén ra key gốc
+                # Giải nén Huffman từ base64
                 from huffman import huffman_decompress
-                comp_bytes = bytes.fromhex(user_key_hex)
+                comp_bytes = base64.b64decode(user_key_input)
                 codes, padbits = loads(compressed_key_info)
-                key = huffman_decompress(comp_bytes, codes, padbits)
-                key = bytes.fromhex(key.decode())
+                key_hex_str = huffman_decompress(comp_bytes, codes, padbits)
+                key = bytes.fromhex(key_hex_str.decode())
             else:
-                key = bytes.fromhex(user_key_hex)
+                key = bytes.fromhex(user_key_input)
         else:
             key = key_bytes
 
         # OTP decrypt
         decrypted_data = otp_xor(cipher_data, key)
 
+        # Giải mã text / binary an toàn
         if out_ext.lower() == 'txt':
-            original_file = decrypted_data.decode('utf-8', errors='ignore')
+            try:
+                original_file = decrypted_data.decode('utf-8')
+            except UnicodeDecodeError:
+                return jsonify({'error': 'Dữ liệu văn bản không hợp lệ UTF-8'}), 400
         else:
             original_file = base64.b64encode(decrypted_data).decode()
 
@@ -171,10 +136,3 @@ def decrypt():
 
     except Exception as e:
         return jsonify({'error': f'Lỗi giải mã: {str(e)}'}), 500
-
-@app.route('/clear_log', methods=['POST'])
-def clear_log():
-    return jsonify({"log": ""})
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
