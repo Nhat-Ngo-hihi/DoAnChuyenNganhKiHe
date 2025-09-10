@@ -102,6 +102,7 @@ def encrypt():
             'encrypted_data': encrypted_data,
             'key_hex': displayed_key,  # key hiển thị cho ô input / tải file
             'enc_pass_hex': enc_pass.hex(),
+            'log': log_msg + f"✅ Mã hóa hoàn tất ({original_size} bytes dữ liệu)."
         })
 
     except Exception as e:
