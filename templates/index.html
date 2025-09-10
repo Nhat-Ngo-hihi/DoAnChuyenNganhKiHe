@@ -501,19 +501,12 @@ document.getElementById('btnClear').addEventListener('click', () => {
   document.getElementById('passwordInput').value = '';
 });
 // Hàm đọc file base64 (dùng chung)
-function arrayBufferToBase64(buffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const chunkSize = 0x8000; // xử lý chunk lớn
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-        const chunk = bytes.subarray(i, i + chunkSize);
-        binary += String.fromCharCode.apply(null, chunk);
-    }
-    return btoa(binary);
-}
 async function readFileAsBase64(file) {
-    const ab = await file.arrayBuffer();
-    return arrayBufferToBase64(ab);
+  const ab = await file.arrayBuffer();
+  let binary = '';
+  const bytes = new Uint8Array(ab);
+  for (let i=0; i<bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
 }
 </script>
 </body>
