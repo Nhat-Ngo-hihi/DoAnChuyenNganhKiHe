@@ -72,7 +72,11 @@ def encrypt():
             else:
                 compressed_key_info = dumps((codes, padbits))
                 displayed_key_hex = comp_data.hex()
-                log_msg += f"✅ Huffman thành công: {len(key_hex)} → {len(comp_data)} bytes.\n"
+                original_size_bytes = len(key_bytes_for_compress)
+                compressed_size_bytes = len(comp_data)
+                percent_saved = 100 * (original_size_bytes - compressed_size_bytes) / original_size_bytes
+                log_msg += f"✅ Huffman thành công: {original_size_bytes} → {compressed_size_bytes} bytes ({percent_saved:.2f}% giảm).\n"
+
         else:
             compressed_key_info = b''
             displayed_key_hex = key_hex
@@ -159,8 +163,10 @@ def decrypt():
         decrypted_data = otp_xor(cipher_data, key)
 
         if out_ext.lower() == 'txt':
-            original_file = decrypted_data.decode('utf-8', errors='ignore')
+            # Trả về text nguyên bản, decode UTF-8
+            original_file = decrypted_data.decode('utf-8')  # không dùng errors='ignore'
         else:
+            # Trả về nhị phân, dùng base64 để JSON an toàn
             original_file = base64.b64encode(decrypted_data).decode()
 
         log_msg = "✅ Key đã xử lý thành công.\n"
