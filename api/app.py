@@ -140,8 +140,8 @@ def decrypt():
         # Kiểm tra AES password
         try:
             dec_pass = aes_decrypt(enc_pass, SECRET)
-        except Exception as e:
-            return jsonify({'error': f'Lỗi AES: {str(e)}'}), 500
+        except Exception:
+            return jsonify({'error': f'Lỗi AES: dữ liệu AES không hợp lệ.'}), 500
 
         if dec_pass != password:
             return jsonify({'error': 'Sai mật khẩu AES (mật khẩu không trùng).'}), 403
@@ -162,8 +162,10 @@ def decrypt():
         if huffman_info:
             from huffman import huffman_decompress
             codes, padbits = loads(huffman_info)
+            before_size = len(decrypted_data)
             original = huffman_decompress(decrypted_data, codes, padbits)
-            log_msg = f"✅ Giải mã và giải nén thành công ({len(original)} bytes)."
+            after_size = len(original)
+            log_msg = f"✅ Giải mã + giải nén Huffman: {before_size} → {after_size} bytes."
         else:
             original = decrypted_data
             log_msg = f"✅ Giải mã thành công ({len(original)} bytes, không nén)."
