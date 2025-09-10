@@ -48,6 +48,7 @@ def encrypt():
         password = data.get('password', '')
         compress = bool(data.get('compress', False))
         out_ext = data.get('outExt', 'bin')
+        original_ext = data.get('originalExt', 'bin')  # thêm đuôi gốc
 
         if not validate_password(password):
             return jsonify({'error': 'Mật khẩu không hợp lệ (≥6 ký tự, có chữ hoa, chữ thường và ký tự đặc biệt).'}), 400
@@ -82,11 +83,13 @@ def encrypt():
             huffman_info = b''
             cipher_to_store = cipher_data
 
-        # Pack layout: [AES pass][OTP key][huffman info][cipher_data]
+        # Ghi thêm extension gốc
+        ext_bytes = original_ext.encode()
         packed = (
             len(enc_pass).to_bytes(2, 'big') + enc_pass +
             len(key).to_bytes(4, 'big') + key +
             len(huffman_info).to_bytes(4, 'big') + huffman_info +
+            len(ext_bytes).to_bytes(2, 'big') + ext_bytes +   # thêm đuôi file gốc
             cipher_to_store
         )
 
@@ -133,6 +136,9 @@ def decrypt():
         info_len = int.from_bytes(raw[idx:idx+4], 'big'); idx += 4
         huffman_info = raw[idx:idx+info_len] if info_len > 0 else b''; idx += info_len
 
+        ext_len = int.from_bytes(raw[idx:idx+2], 'big'); idx += 2
+        original_ext = raw[idx:idx+ext_len].decode() if ext_len > 0 else 'bin'; idx += ext_len
+
         cipher_stored = raw[idx:]
 
         # AES check
@@ -170,14 +176,8 @@ def decrypt():
 
         return jsonify({
             'original_file': base64.b64encode(original).decode(),
+            'original_ext': original_ext,   # trả về đuôi gốc
             'log': f'Giải mã thành công ({len(original)} bytes).'
         })
     except Exception as e:
         return jsonify({'error': f'Lỗi giải mã: {str(e)}'}), 500
-
-@app.route('/clear_log', methods=['POST'])
-def clear_log():
-    return jsonify({"log": ""})
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
