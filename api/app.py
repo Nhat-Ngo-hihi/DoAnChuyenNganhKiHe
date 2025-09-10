@@ -1,3 +1,4 @@
+
 from pickle import dumps, loads
 from flask import Flask, render_template, request, jsonify
 import base64, os, re
@@ -159,23 +160,22 @@ def decrypt():
 
         # OTP decrypt
         decrypted_data = otp_xor(cipher_data, key)
-
-        # Xử lý theo loại file
-        if out_ext.lower() == 'txt':
-            try:
-                # Trả về text UTF-8 trực tiếp (ASCII-safe)
-                original_file = decrypted_data.decode('utf-8')
-            except UnicodeDecodeError:
-                return jsonify({'error': 'Dữ liệu văn bản không hợp lệ UTF-8'}), 400
-        else:
-            # File nhị phân → trả Base64 để JS xử lý
-            original_file = base64.b64encode(decrypted_data).decode()
-
+        
+        # Trả về Base64 để JS xử lý UTF-8-safe
+        original_file_b64 = base64.b64encode(decrypted_data).decode()
+        
         log_msg = "✅ Key đã xử lý thành công.\n"
         return jsonify({
-            'original_file': original_file,
+            'original_file': original_file_b64,
             'log': log_msg + f"✅ Giải mã thành công ({len(decrypted_data)} bytes)."
         })
+
+    except Exception as e:
+        return jsonify({'error': f'Lỗi giải mã: {str(e)}'}), 500
+
+@app.route('/clear_log', methods=['POST'])
+def clear_log():
+    return jsonify({"log": ""})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
