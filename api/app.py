@@ -167,9 +167,16 @@ def decrypt():
         else:
             log_msg = "✅ Key không nén.\n"
 
+        if out_ext.lower() == 'txt':
+            # Trả về text
+            original_file = decrypted_data.decode('utf-8', errors='ignore')
+        else:
+            # Trả về bin (base64 để JSON an toàn)
+            original_file = base64.b64encode(decrypted_data).decode()
+
         return jsonify({
-            'original_file': base64.b64encode(decrypted_data).decode(),
-            'log': log_msg + f"✅ Giải mã thành công ({len(decrypted_data)} bytes)."
+            'original_file': original_file,
+    '        log': log_msg + f"✅ Giải mã thành công ({len(decrypted_data)} bytes)."
         })
 
     except Exception as e:
