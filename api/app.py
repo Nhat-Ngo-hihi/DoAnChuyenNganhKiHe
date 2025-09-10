@@ -33,7 +33,8 @@ def validate_password(password: str) -> bool:
     if not re.search(r"[a-z]", password): return False
     if not re.search(r"[A-Z]", password): return False
     if not re.search(r"[^a-zA-Z0-9]", password): return False
-    return True 
+    return True
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -46,7 +47,8 @@ def encrypt():
         file_b64 = data['file']
         password = data.get('password', '')
         compress_key = bool(data.get('compress', False))
-        out_ext = data.get('outExt', 'bin') 
+        out_ext = data.get('outExt', 'bin')
+
         if not validate_password(password):
             return jsonify({'error': 'Mật khẩu không hợp lệ.'}), 400
 
@@ -173,6 +175,6 @@ def decrypt():
 @app.route('/clear_log', methods=['POST'])
 def clear_log():
     return jsonify({"log": ""})
-    
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
