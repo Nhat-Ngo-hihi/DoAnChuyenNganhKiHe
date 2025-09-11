@@ -103,6 +103,10 @@
           <div>
             <label>Mật khẩu (sẽ được mã hóa bằng AES để bảo vệ):</label>
             <input id="passwordInput" type="password" class="w-full mt-2 p-2 bg-gray-700 rounded" />
+            <small class="text-gray-400 text-xs">
+                🔑 Yêu cầu: ít nhất 6 ký tự, có chữ hoa, chữ thường và ký tự đặc biệt.
+            </small>
+            <div id="passwordError" class="text-red-400 text-sm mt-1 hidden"></div>
           </div>
 
           <div class="flex items-center gap-8">
@@ -508,6 +512,33 @@ async function readFileAsBase64(file) {
   for (let i=0; i<bytes.length; i++) binary += String.fromCharCode(bytes[i]);
   return btoa(binary);
 }
+  const passwordInput = document.getElementById("passwordInput");
+const passwordError = document.getElementById("passwordError");
+
+passwordInput.addEventListener("input", () => {
+  const password = passwordInput.value;
+  const regexLower = /[a-z]/;
+  const regexUpper = /[A-Z]/;
+  const regexSpecial = /[^a-zA-Z0-9]/;
+
+  if (password.length < 6) {
+    passwordError.innerText = "❌ Mật khẩu phải có ít nhất 6 ký tự.";
+    passwordError.classList.remove("hidden");
+  } else if (!regexLower.test(password)) {
+    passwordError.innerText = "❌ Mật khẩu phải chứa ít nhất 1 chữ thường.";
+    passwordError.classList.remove("hidden");
+  } else if (!regexUpper.test(password)) {
+    passwordError.innerText = "❌ Mật khẩu phải chứa ít nhất 1 chữ hoa.";
+    passwordError.classList.remove("hidden");
+  } else if (!regexSpecial.test(password)) {
+    passwordError.innerText = "❌ Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt.";
+    passwordError.classList.remove("hidden");
+  } else {
+    passwordError.classList.add("hidden");
+    passwordError.innerText = "";
+  }
+});
+
 </script>
 </body>
 </html>
