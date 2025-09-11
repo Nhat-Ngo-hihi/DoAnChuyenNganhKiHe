@@ -139,7 +139,7 @@ def decrypt():
         try:
             dec_pass = aes_decrypt(enc_pass, SECRET)
         except Exception:
-            return jsonify({'error': 'AES không hợp lệ.'}), 500
+            return jsonify({'error': 'Sai mật khẩu gốc, vui lòng nhập lại mật khẩu.'}), 500
         if dec_pass != password:
             return jsonify({'error': 'Sai mật khẩu AES.'}), 403
 
