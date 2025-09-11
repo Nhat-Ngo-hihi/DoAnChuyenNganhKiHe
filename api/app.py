@@ -50,7 +50,7 @@ def encrypt():
         out_ext = data.get('outExt', 'bin')
 
         if not validate_password(password):
-            return jsonify({'error': 'Mật khẩu không hợp lệ.'}), 400
+            return jsonify({'error': 'Mật khẩu không hợp lệ, vui lòng đặt lại pass theo ràng buộc: >= 6 ký tự, viết hoa, viết thường và ký tự đặt biệt.'}), 400
 
         file_bytes = base64.b64decode(file_b64)
         original_size = len(file_bytes)
